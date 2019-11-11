@@ -4,8 +4,11 @@ header('Content-Type: text/plain');
 
 if (php_sapi_name() == 'cli') {define('CLI_SCRIPT', true);}
 
-require_once(dirname(__FILE__).'/config.php');
-require_once('admin/tool/dataprivacy/lib.php');
+require_once(dirname(__FILE__).'/../config.php');
+
+global $CFG, $DB, $PAGE, $OUTPUT, $SITE, $USER;
+
+require_once($CFG->dirroot . '/admin/tool/dataprivacy/lib.php');
 
 use tool_dataprivacy\api;
 use tool_dataprivacy\task\initiate_data_request_task; // could be removed in M3.7
@@ -34,8 +37,6 @@ function preprocess_request($requestid) {
     ob_clean();
     mtrace('Context generation complete...');
 } 
-
-global $CFG, $DB, $PAGE, $OUTPUT, $SITE, $USER;
 
 //Un-comment this to be able to run without auth!
 //$USER = $DB->get_record('user', array('id' => 2));

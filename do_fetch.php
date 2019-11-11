@@ -4,13 +4,14 @@ error_reporting(E_ALL);
 
 if (php_sapi_name() == 'cli') {define('CLI_SCRIPT', true);}
 
-require_once(dirname(__FILE__).'/config.php');
-require_once('admin/tool/dataprivacy/lib.php');
+require_once(dirname(__FILE__).'/../config.php');
+
+global $CFG, $DB, $PAGE, $OUTPUT, $SITE, $USER;
+
+require_once($CFG->dirroot . '/admin/tool/dataprivacy/lib.php');
 
 use tool_dataprivacy\api;
 use tool_dataprivacy\data_request;
-
-global $CFG, $DB, $PAGE, $OUTPUT, $SITE, $USER;
 
 //Un-comment this to be able to run without auth! e.g. from CLI
 //$USER = $DB->get_record('user', array('id' => 2));
