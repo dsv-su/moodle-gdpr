@@ -39,7 +39,7 @@ function preprocess_request($requestid) {
 } 
 
 //Un-comment this to be able to run without auth!
-//$USER = $DB->get_record('user', array('id' => 2));
+$USER = $DB->get_record('user', array('id' => 2));
 
 if (!is_siteadmin($USER->id) && (php_sapi_name() !== 'cli')) {
     die();

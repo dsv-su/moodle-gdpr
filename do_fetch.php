@@ -14,7 +14,7 @@ use tool_dataprivacy\api;
 use tool_dataprivacy\data_request;
 
 //Un-comment this to be able to run without auth! e.g. from CLI
-//$USER = $DB->get_record('user', array('id' => 2));
+$USER = $DB->get_record('user', array('id' => 2));
 
 if (!is_siteadmin($USER->id)) {
     die();
@@ -47,7 +47,6 @@ if (!$user) {
     // Deleted user won't be found (if deletion request was completed);
     echo "No user was found\n\r";
 }
-
 // Let's find a completed request.
 $requests = api::get_data_requests($user->id, array(), $op);
 if (empty($requests)) {
@@ -60,6 +59,9 @@ foreach ($requests as $key => $request) {
 		unset($requests[$key]);
 	}
 }
+
+// Sort the request by the timecreated.
+usort($requests, function($a, $b) { return ($a->get('timecreated') > $b->get('timecreated'));});
 
 // Get the newest request.
 $newest_request = end($requests);
