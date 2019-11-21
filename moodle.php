@@ -55,12 +55,13 @@ if (!$user) {
 
 // Let's find a completed request.
 $request = api::get_data_requests($user->id, array(), $op, data_request::DATAREQUEST_CREATION_AUTO, 'timecreated DESC', 0, 1);
+$request = reset($request);
 
 if ($op == 1) {
     if (!empty($request) && $request->get('status') == api::DATAREQUEST_STATUS_DOWNLOAD_READY && $request->get('timecreated') > (time() - 43200)) {
         $fs = get_file_storage();
         $usercontext = \context_user::instance($user->id, IGNORE_MISSING);
-        $file = $fs->get_file($usercontext->id, 'tool_dataprivacy', 'export', $newest_request->get('id'), '/', 'export.zip');
+        $file = $fs->get_file($usercontext->id, 'tool_dataprivacy', 'export', $request->get('id'), '/', 'export.zip');
         // The request has succeeded. The client can read the result of the request in the body and the headers of the response.
         http_response_code(200);
         $file->readfile();
