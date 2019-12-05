@@ -59,27 +59,77 @@ try {
     $request = api::get_data_requests($user->id, array(), $op, data_request::DATAREQUEST_CREATION_AUTO, 'timecreated DESC', 0, 1);
     $request = reset($request);
 
+    //
+
     if ($op == 1) {
-        if (!empty($request) && $request->get('status') == api::DATAREQUEST_STATUS_DOWNLOAD_READY && $request->get('timecreated') > (time() - 43200)) {
-            $fs = get_file_storage();
-            $usercontext = \context_user::instance($user->id, IGNORE_MISSING);
-            $file = $fs->get_file($usercontext->id, 'tool_dataprivacy', 'export', $request->get('id'), '/', 'export.zip');
-            // The request has succeeded. The client can read the result of the request in the body and the headers of the response.
+        if (!empty($request) && $request->get('status') == api::DATAREQUEST_STATUS_DOWNLOAD_READY && $request->get('timecreated') > (time() - 3600)) {
+            serveFile($user, $request);
             http_response_code(200);
-            $file->readfile();
         } else {
-            // No completed request found, let's try to create one.
-            if (!(api::has_ongoing_request($user->id, $op))) {
-                // Now ongoing requests. Creating one.
-                $datarequest = api::create_data_request($user->id, $op, 'Autocreated', data_request::DATAREQUEST_CREATION_AUTO);
-                $requestid = $datarequest->get('id');
-                api::approve_data_request($requestid);
+            // No recently completed request found, let's try to create one.
+            $datarequest = api::create_data_request($user->id, $op, 'Autocreated', data_request::DATAREQUEST_CREATION_AUTO);
+            $requestid = $datarequest->get('id');
+            api::approve_data_request($requestid);
+
+            $adhoctasks = manager::get_adhoc_tasks(initiate_data_request_task::class);
+            foreach ($adhoctasks as $adhoctask) {
+                if ($adhoctask->get_custom_data()->requestid == $requestid) {
+                    $DB->delete_records('task_adhoc', ['id' => $adhoctask->get_id()]);
+                }
             }
-            // Data request has been accepted for processing, but the processing has not been completed. 
-            http_response_code(202);
+
+            $requestpersistent = new data_request($requestid);
+            $request = $requestpersistent->to_record();
+            // Grab the manager.
+            // We set an observer against it to handle failures.
+            $manager = new \core_privacy\manager();
+            $manager->set_observer(new \tool_dataprivacy\manager_observer());
+            $foruser = core_user::get_user($request->userid);
+            // Process the request
+            api::update_request_status($requestid, api::DATAREQUEST_STATUS_PROCESSING);
+            $contextlistcollection = $manager->get_contexts_for_userid($requestpersistent->get('userid'));
+            $approvedclcollection = api::get_approved_contextlist_collection_for_collection(
+                $contextlistcollection, $foruser, $request->type);
+            $completestatus = api::DATAREQUEST_STATUS_COMPLETE;
+            $deleteuser = false;
+            $usercontext = \context_user::instance($foruser->id, IGNORE_MISSING);
+
+            // Export the data.
+            $exportedcontent = $manager->export_user_data($approvedclcollection);
+
+            $fs = get_file_storage();
+            $filerecord = new \stdClass;
+            $filerecord->component = 'tool_dataprivacy';
+            $filerecord->contextid = $usercontext->id;
+            $filerecord->userid    = $foruser->id;
+            $filerecord->filearea  = 'export';
+            $filerecord->filename  = 'export.zip';
+            $filerecord->filepath  = '/';
+            $filerecord->itemid    = $requestid;
+            $filerecord->license   = $CFG->sitedefaultlicense;
+            $filerecord->author    = fullname($foruser);
+            // Save somewhere.
+            $thing = $fs->create_file_from_pathname($filerecord, $exportedcontent);
+            $completestatus = api::DATAREQUEST_STATUS_DOWNLOAD_READY;
+            api::update_request_status($requestid, $completestatus);
+
+            // Flush output
+            ob_end_flush();
+            ob_start();
+            $thing->readfile();
+            http_response_code(200);
         }
     }
 
 } catch (Exception $e) {
+    var_dump($e->getMessage());
     http_response_code(500);
+}
+
+function serveFile ($user, $request) {
+    $fs = get_file_storage();
+    $usercontext = \context_user::instance($user->id, IGNORE_MISSING);
+    $file = $fs->get_file($usercontext->id, 'tool_dataprivacy', 'export', $request->get('id'), '/', 'export.zip');
+    // The request has succeeded. The client can read the result of the request in the body and the headers of the response.
+    $file->readfile();
 }
