@@ -39,7 +39,7 @@ try {
         $email = optional_param('mail', '', PARAM_NOTAGS);
     }
 
-    $user1 = $username ? core_user::get_user_by_username($username.'@su.se') : null;
+    $user1 = $username ? core_user::get_user_by_username($username) : null;
     $user2 = $email ? core_user::get_user_by_email($email) : null;
     if ($username && $email && ($user1 !== $user2)) {
         // The requested user could not be found or credentials point to different users.
@@ -118,11 +118,14 @@ try {
             ob_start();
             $thing->readfile();
             http_response_code(200);
+
+            unset($USER);
         }
     }
 
 } catch (Exception $e) {
     var_dump($e->getMessage());
+    unset($USER);
     http_response_code(500);
 }
 
