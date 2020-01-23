@@ -51,15 +51,13 @@ try {
 
     if (!$user) {
         // The requested user could not be found.
-        http_response_code(404);
+        http_response_code(204);
         die();
     }
 
     // Let's find a completed request.
     $request = api::get_data_requests($user->id, array(), $op, data_request::DATAREQUEST_CREATION_AUTO, 'timecreated DESC', 0, 1);
     $request = reset($request);
-
-    //
 
     if ($op == 1) {
         if (!empty($request) && $request->get('status') == api::DATAREQUEST_STATUS_DOWNLOAD_READY && $request->get('timecreated') > (time() - 3600)) {
