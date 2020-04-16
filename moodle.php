@@ -2,9 +2,11 @@
 error_reporting(E_ALL);
 header('Content-Type: text/plain');
 
-if (php_sapi_name() == 'cli') {define('CLI_SCRIPT', true);}
+if (php_sapi_name() == 'cli') {
+    define('CLI_SCRIPT', true);
+}
 
-require_once(dirname(__FILE__).'/../config.php');
+require_once(dirname(__FILE__) . '/../config.php');
 
 global $CFG, $DB, $PAGE, $OUTPUT, $SITE, $USER;
 
@@ -17,30 +19,55 @@ use tool_dataprivacy\contextlist_context;
 use core\task\adhoc_task;
 
 try {
-
-    //Un-comment this to be able to run without auth!
-    $USER = $DB->get_record('user', array('id' => 2));
-
-    if (!is_siteadmin($USER->id) && (php_sapi_name() !== 'cli')) {
-        http_response_code(401);
-        die();
-    }
-
     if (php_sapi_name() == 'cli') {
-      $opts = "o:u:e:";
-      $input = getopt($opts);
-      $op = $input['o'];
-      $username = $input['u'];
-      $email = $input['e'];
+        $opts = "o:u::e::t:";
+        $input = getopt($opts);
+        $op = $input['o'] ?? null;
+        $username = $input['u'] ?? null;
+        $email = $input['e'] ?? null;
+        $ticket = $input['t'] ?? null;
     } else {
         // op: export = 1, delete = 2
         $op = required_param('op', PARAM_INT);
         $username = optional_param('username', '', PARAM_TEXT);
         $email = optional_param('mail', '', PARAM_NOTAGS);
+        $ticket = required_param('ticket', PARAM_TEXT);
+    }
+
+    if (!$op || !$ticket || (!$username && !$email)) {
+        http_response_code(400);
+        die();
+    }
+
+    $ch = curl_init();
+    $apiurl = 'https://toker-test.dsv.su.se/verify';
+
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $ticket);
+    curl_setopt($ch, CURLOPT_URL, $apiurl);
+    $contents = curl_exec($ch);
+    $headers  = curl_getinfo($ch);
+    curl_close($ch);
+
+    // Check auth.
+    if ($headers['http_code'] !== 200 || !in_array('urn:mace:swami.se:gmai:dsv-user:gdpr', json_decode($contents)->entitlements)) {
+        // Throw unauthorized code.
+        http_response_code(401);
+        die();
+    }
+
+    $USER = $DB->get_record('user', array('id' => 2));
+
+    if ($DB->count_records('user', array('email' => $email)) > 1 || $DB->count_records('user', array('email' => $username)) > 1) {
+        http_response_code(409);
+        die();
     }
 
     $user1 = $username ? core_user::get_user_by_username($username) : null;
     $user2 = $email ? core_user::get_user_by_email($email) : null;
+
     if ($username && $email && ($user1 !== $user2)) {
         // The requested user could not be found or credentials point to different users.
         http_response_code(400);
@@ -87,7 +114,10 @@ try {
             api::update_request_status($requestid, api::DATAREQUEST_STATUS_PROCESSING);
             $contextlistcollection = $manager->get_contexts_for_userid($requestpersistent->get('userid'));
             $approvedclcollection = api::get_approved_contextlist_collection_for_collection(
-                $contextlistcollection, $foruser, $request->type);
+                $contextlistcollection,
+                $foruser,
+                $request->type
+            );
             $completestatus = api::DATAREQUEST_STATUS_COMPLETE;
             $deleteuser = false;
             $usercontext = \context_user::instance($foruser->id, IGNORE_MISSING);
@@ -120,14 +150,14 @@ try {
             unset($USER);
         }
     }
-
 } catch (Exception $e) {
     var_dump($e->getMessage());
     unset($USER);
     http_response_code(500);
 }
 
-function serveFile ($user, $request) {
+function serveFile($user, $request)
+{
     $fs = get_file_storage();
     $usercontext = \context_user::instance($user->id, IGNORE_MISSING);
     $file = $fs->get_file($usercontext->id, 'tool_dataprivacy', 'export', $request->get('id'), '/', 'export.zip');
