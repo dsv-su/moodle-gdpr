@@ -31,7 +31,7 @@ try {
         $op = required_param('op', PARAM_INT);
         $username = optional_param('username', '', PARAM_TEXT);
         $email = optional_param('mail', '', PARAM_NOTAGS);
-        $ticket = required_param('ticket', PARAM_TEXT);
+        $ticket = getallheaders()['Authorization'] ?? null;
     }
 
     if (!$op || !$ticket || (!$username && !$email)) {
