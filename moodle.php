@@ -30,7 +30,7 @@ try {
         // op: export = 1, delete = 2
         $op = required_param('op', PARAM_INT);
         $username = optional_param('username', '', PARAM_TEXT);
-        $email = optional_param('mail', '', PARAM_NOTAGS);
+        $email = optional_param('email', '', PARAM_NOTAGS);
         $ticket = getallheaders()['Authorization'] ?? null;
     }
 
@@ -67,6 +67,11 @@ try {
 
     $user1 = $username ? core_user::get_user_by_username($username) : null;
     $user2 = $email ? core_user::get_user_by_email($email) : null;
+
+    if (!$user1 && !$user2) {
+        http_response_code(204);
+        die();
+    }
 
     if ($username && $email && ($user1 !== $user2)) {
         // The requested user could not be found or credentials point to different users.
