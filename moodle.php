@@ -31,7 +31,7 @@ try {
         $op = required_param('op', PARAM_INT);
         $username = optional_param('username', '', PARAM_TEXT);
         $email = optional_param('email', '', PARAM_NOTAGS);
-        $ticket = getallheaders()['Authorization'] ?? null;
+        $ticket = getallheaders()['Authorization'] ?? optional_param('ticket', '', PARAM_TEXT);
     }
 
     if (!$op || !$ticket || (!$username && !$email)) {
@@ -60,7 +60,7 @@ try {
 
     $USER = $DB->get_record('user', array('id' => 2));
 
-    if ($DB->count_records('user', array('email' => $email)) > 1 || $DB->count_records('user', array('email' => $username)) > 1) {
+    if (($email && $DB->count_records('user', array('email' => $email)) > 1) || ($username && $DB->count_records('user', array('username' => $username)) > 1)) {
         http_response_code(409);
         die();
     }
@@ -73,13 +73,13 @@ try {
         die();
     }
 
-    if ($username && $email && ($user1 !== $user2)) {
+    if ($username && $email && ($user1 != $user2)) {
         // The requested user could not be found or credentials point to different users.
         http_response_code(400);
         die();
     }
 
-    $user = $user1 ?? $user2;
+    $user = $user1 ?: $user2;
 
     if (!$user) {
         // The requested user could not be found.
