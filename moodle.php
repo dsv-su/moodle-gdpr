@@ -58,7 +58,8 @@ try {
         die();
     }
 
-    $USER = $DB->get_record('user', array('id' => 2));
+    $requestedby = json_decode($contents)->principal ?? null;
+    $USER = $requestedby ? $DB->get_record('user', array('username' => $requestedby)) : $DB->get_record('user', array('id' => 2));
 
     if (($email && $DB->count_records('user', array('email' => $email)) > 1) || ($username && $DB->count_records('user', array('username' => $username)) > 1)) {
         http_response_code(409);
