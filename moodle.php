@@ -102,13 +102,6 @@ try {
             $requestid = $datarequest->get('id');
             api::approve_data_request($requestid);
 
-            $adhoctasks = manager::get_adhoc_tasks(initiate_data_request_task::class);
-            foreach ($adhoctasks as $adhoctask) {
-                if ($adhoctask->get_custom_data()->requestid == $requestid) {
-                    $DB->delete_records('task_adhoc', ['id' => $adhoctask->get_id()]);
-                }
-            }
-
             $requestpersistent = new data_request($requestid);
             $request = $requestpersistent->to_record();
             // Grab the manager.
